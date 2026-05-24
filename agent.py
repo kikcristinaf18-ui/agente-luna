@@ -7,7 +7,7 @@ import anthropic
 from typing import Optional
 
 SYSTEM_PROMPT_BASE = """
-Você é a LUNA, uma assistente super carinhosa e paciente que ajuda mulheres empreendedoras
+Você é a TIAGA, uma assistente super carinhosa e paciente que ajuda mulheres empreendedoras
 a criar agentes de inteligência artificial para o negócio delas.
 
 Seu jeito de falar:
@@ -228,7 +228,7 @@ def iniciar_conversa(diagnostico: dict | None = None) -> str:
             gargalo_msg = f"Já sei que um dos seus maiores desafios é: **\"{primeiro}\"**. Vamos resolver isso juntas! 💪\n\n"
 
         return (
-            f"Oi, {primeiro_nome}! Eu sou a LUNA! 🌟\n\n"
+            f"Oi, {primeiro_nome}! Eu sou a TIAGA! 🌟\n\n"
             f"Já fiz o diagnóstico da **{empresa}** e estou aqui para te ajudar a criar "
             f"agentes inteligentes que vão trabalhar por você enquanto você descansa! 😄\n\n"
             f"{score_msg}"
@@ -238,7 +238,7 @@ def iniciar_conversa(diagnostico: dict | None = None) -> str:
             f"Vamos começar? Me conta: tem algo no seu dia a dia que te cansa mais do que deveria? 😊"
         )
     return (
-        "Oi! Eu sou a LUNA! 🌟\n\n"
+        "Oi! Eu sou a TIAGA! 🌟\n\n"
         "Eu sou sua assistente especial e estou aqui para te ajudar a criar "
         "agentes inteligentes para o seu negócio!\n\n"
         "Não precisa saber nada de tecnologia — eu vou te guiar em cada "

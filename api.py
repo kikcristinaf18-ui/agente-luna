@@ -1,5 +1,5 @@
 """
-API FastAPI para o agente LUNA — Guia de Agentes para Empreendedoras
+API FastAPI para o agente TIAGA — Guia de Agentes para Empreendedoras
 Integre com sua plataforma no Lovable via fetch/axios.
 """
 
@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="LUNA — Agente para Empreendedoras",
+    title="TIAGA — Agente para Empreendedoras",
     description="API do agente que ajuda mulheres empreendedoras a criar seus agentes",
     version="1.0.0"
 )
@@ -67,7 +67,7 @@ class Diagnostico(BaseModel):
 
 
 class IniciarSessaoRequest(BaseModel):
-    user_id: Optional[str] = None       # passa isso → Luna busca TUDO no Supabase
+    user_id: Optional[str] = None       # passa isso → Tiaga busca TUDO no Supabase
     diagnostico: Optional[Diagnostico] = None  # fallback manual (sem Supabase)
 
 
@@ -97,7 +97,7 @@ class HistoricoResponse(BaseModel):
 def raiz():
     chave_ok = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
-        "status": "LUNA está online e pronta para ajudar! 🌟",
+        "status": "TIAGA está online e pronta para ajudar! 🌟",
         "api_key_configurada": chave_ok
     }
 
@@ -105,7 +105,7 @@ def raiz():
 @app.post("/sessao/iniciar", response_model=IniciarSessaoResponse)
 def iniciar_sessao(body: IniciarSessaoRequest = IniciarSessaoRequest()):
     """
-    Cria uma nova sessão de conversa com a LUNA.
+    Cria uma nova sessão de conversa com a TIAGA.
 
     Passe o diagnóstico da empreendedora (vindo do Supabase) para personalizar a conversa:
 
@@ -146,7 +146,7 @@ def iniciar_sessao(body: IniciarSessaoRequest = IniciarSessaoRequest()):
         diag_dict = body.diagnostico.model_dump()
         logger.info(f"Sessão {sessao_id} iniciada com diagnóstico manual.")
     else:
-        logger.info(f"Sessão {sessao_id} iniciada sem dados — Luna vai perguntar do zero.")
+        logger.info(f"Sessão {sessao_id} iniciada sem dados — Tiaga vai perguntar do zero.")
 
     if diag_dict:
         diagnosticos[sessao_id] = diag_dict
@@ -162,7 +162,7 @@ def iniciar_sessao(body: IniciarSessaoRequest = IniciarSessaoRequest()):
 @app.post("/chat", response_model=EnviarMensagemResponse)
 def enviar_mensagem(body: EnviarMensagemRequest):
     """
-    Envia uma mensagem para a LUNA e recebe a resposta.
+    Envia uma mensagem para a TIAGA e recebe a resposta.
 
     Exemplo de uso no Lovable (JavaScript):
 
@@ -175,7 +175,7 @@ def enviar_mensagem(body: EnviarMensagemRequest):
           })
         })
         const data = await res.json()
-        console.log(data.resposta) // resposta da LUNA
+        console.log(data.resposta) // resposta da TIAGA
     """
     # Se a sessão não existe (ex: servidor reiniciou), cria uma nova automaticamente
     if body.sessao_id not in sessoes:
@@ -196,7 +196,7 @@ def enviar_mensagem(body: EnviarMensagemRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao chamar a LUNA: {e}")
+        logger.error(f"Erro ao chamar a TIAGA: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Erro ao processar mensagem: {str(e)}"
