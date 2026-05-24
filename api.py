@@ -11,6 +11,7 @@ import os
 import logging
 
 from agent import chat_com_luna, iniciar_conversa, criar_cliente
+from supabase_context import buscar_contexto_completo, montar_diagnostico_para_luna
 from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +67,8 @@ class Diagnostico(BaseModel):
 
 
 class IniciarSessaoRequest(BaseModel):
-    diagnostico: Optional[Diagnostico] = None
+    user_id: Optional[str] = None       # passa isso → Luna busca TUDO no Supabase
+    diagnostico: Optional[Diagnostico] = None  # fallback manual (sem Supabase)
 
 
 class IniciarSessaoResponse(BaseModel):
@@ -126,12 +128,28 @@ def iniciar_sessao(body: IniciarSessaoRequest = IniciarSessaoRequest()):
     sessao_id = str(uuid.uuid4())
     sessoes[sessao_id] = []
 
-    diag_dict = body.diagnostico.model_dump() if body.diagnostico else None
+    diag_dict = None
+
+    if body.user_id:
+        # Busca automática de TODOS os dados da empreendedora no Supabase
+        try:
+            ctx = buscar_contexto_completo(body.user_id)
+            diag_dict = montar_diagnostico_para_luna(ctx)
+            logger.info(
+                f"Sessão {sessao_id} — dados carregados do Supabase para: "
+                f"{diag_dict.get('nome', '?') if diag_dict else 'sem perfil'}"
+            )
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados do Supabase: {e}")
+    elif body.diagnostico:
+        # Fallback: diagnóstico passado manualmente
+        diag_dict = body.diagnostico.model_dump()
+        logger.info(f"Sessão {sessao_id} iniciada com diagnóstico manual.")
+    else:
+        logger.info(f"Sessão {sessao_id} iniciada sem dados — Luna vai perguntar do zero.")
+
     if diag_dict:
         diagnosticos[sessao_id] = diag_dict
-        logger.info(f"Sessão {sessao_id} iniciada com diagnóstico de: {diag_dict.get('nome', '?')}")
-    else:
-        logger.info(f"Sessão {sessao_id} iniciada sem diagnóstico.")
 
     mensagem_inicial = iniciar_conversa(diag_dict)
 

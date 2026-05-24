@@ -149,6 +149,10 @@ Oportunidades de automação (as mais relevantes):
 
 Recomendações gerais:
 {_lista(diagnostico.get("recomendacoes"))}
+
+Progresso na plataforma:
+  - Aulas concluídas: {diagnostico.get("total_aulas_concluidas", 0)}
+  - Trilhas disponíveis: {", ".join(diagnostico.get("trilhas_disponiveis") or []) or "não carregadas"}
 =====================================
 
 INSTRUÇÕES ESPECIAIS COM BASE NESSE DIAGNÓSTICO:
