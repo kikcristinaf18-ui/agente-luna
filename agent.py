@@ -123,8 +123,11 @@ def construir_prompt_com_diagnostico(diagnostico: dict | None) -> str:
         return SYSTEM_PROMPT_BASE
 
     primeiro_nome = (diagnostico.get("nome") or "").split()[0] or "empreendedora"
-    score = diagnostico.get("score_maturidade")
-    score_texto = f"{score}/100" if score is not None else "não calculado"
+    try:
+        score = float(diagnostico.get("score_maturidade") or 0) or None
+    except (TypeError, ValueError):
+        score = None
+    score_texto = f"{score:.0f}/100" if score is not None else "não calculado"
 
     contexto = f"""
 === DIAGNÓSTICO DA EMPREENDEDORA ===
@@ -152,7 +155,7 @@ Recomendações gerais:
 
 Progresso na plataforma:
   - Aulas concluídas: {diagnostico.get("total_aulas_concluidas", 0)}
-  - Trilhas disponíveis: {", ".join(diagnostico.get("trilhas_disponiveis") or []) or "não carregadas"}
+  - Trilhas disponíveis: {", ".join(t for t in (diagnostico.get("trilhas_disponiveis") or []) if t) or "não carregadas"}
 =====================================
 
 INSTRUÇÕES ESPECIAIS COM BASE NESSE DIAGNÓSTICO:
@@ -210,7 +213,10 @@ def iniciar_conversa(diagnostico: dict | None = None) -> str:
     if diagnostico and diagnostico.get("nome"):
         primeiro_nome = diagnostico["nome"].split()[0]
         empresa = diagnostico.get("nome_empresa") or "seu negócio"
-        score = diagnostico.get("score_maturidade")
+        try:
+            score = float(diagnostico.get("score_maturidade") or 0) or None
+        except (TypeError, ValueError):
+            score = None
         gargalos = diagnostico.get("gargalos") or []
 
         score_msg = ""

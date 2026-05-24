@@ -196,7 +196,8 @@ def enviar_mensagem(body: EnviarMensagemRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao chamar a TIAGA: {e}")
+        import traceback
+        logger.error(f"Erro ao chamar a TIAGA: {e}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Erro ao processar mensagem: {str(e)}"
