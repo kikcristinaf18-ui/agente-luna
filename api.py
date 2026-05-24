@@ -216,6 +216,30 @@ def enviar_mensagem(body: EnviarMensagemRequest):
     )
 
 
+@app.get("/debug/usuario/{user_id}")
+def debug_usuario(user_id: str):
+    """
+    Endpoint temporário de diagnóstico — mostra o que a Tiaga está buscando no Supabase.
+    Use para confirmar que os dados estão chegando certos antes de remover.
+    """
+    try:
+        from supabase_context import buscar_contexto_completo, montar_diagnostico_para_luna
+        ctx = buscar_contexto_completo(user_id)
+        diag = montar_diagnostico_para_luna(ctx)
+        return {
+            "ok": True,
+            "contexto_bruto": ctx,
+            "diagnostico_para_tiaga": diag,
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "ok": False,
+            "erro": str(e),
+            "traceback": traceback.format_exc(),
+        }
+
+
 @app.get("/sessao/{sessao_id}/historico", response_model=HistoricoResponse)
 def ver_historico(sessao_id: str):
     """Retorna todo o histórico de conversa de uma sessão."""
