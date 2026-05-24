@@ -11,6 +11,7 @@ import os
 import logging
 
 from agent import chat_com_luna, iniciar_conversa, criar_cliente
+from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ app.add_middleware(
 )
 
 sessoes: dict[str, list[dict]] = {}
+diagnosticos: dict[str, dict] = {}  # sessao_id → diagnóstico da empreendedora
 
 # Cliente criado sob demanda para não travar se a chave não estiver configurada
 _cliente_anthropic = None
@@ -47,6 +49,20 @@ def get_cliente():
 
 
 # ── Modelos de dados ──────────────────────────────────────────────────────────
+
+class Diagnostico(BaseModel):
+    nome: Optional[str] = None
+    nome_empresa: Optional[str] = None
+    segmento: Optional[str] = None
+    tempo_mercado: Optional[str] = None
+    dores: Optional[list[str]] = None
+    nivel_tech: Optional[str] = None   # "iniciante" | "intermediario" | "avancado"
+    objetivos: Optional[list[str]] = None
+
+
+class IniciarSessaoRequest(BaseModel):
+    diagnostico: Optional[Diagnostico] = None
+
 
 class IniciarSessaoResponse(BaseModel):
     sessao_id: str
@@ -80,15 +96,39 @@ def raiz():
 
 
 @app.post("/sessao/iniciar", response_model=IniciarSessaoResponse)
-def iniciar_sessao():
+def iniciar_sessao(body: IniciarSessaoRequest = IniciarSessaoRequest()):
     """
     Cria uma nova sessão de conversa com a LUNA.
-    Chame isso quando uma empreendedora entrar no chat pela primeira vez.
+
+    Passe o diagnóstico da empreendedora (vindo do Supabase) para personalizar a conversa:
+
+        fetch('/sessao/iniciar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            diagnostico: {
+              nome: "Maria Silva",
+              nome_empresa: "Ateliê da Maria",
+              segmento: "Moda / Costura",
+              tempo_mercado: "3 anos",
+              dores: ["Demora muito para responder clientes", "Perde vendas por falta de tempo"],
+              nivel_tech: "iniciante",
+              objetivos: ["Automatizar atendimento", "Ter mais tempo para criar peças"]
+            }
+          })
+        })
     """
     sessao_id = str(uuid.uuid4())
     sessoes[sessao_id] = []
 
-    mensagem_inicial = iniciar_conversa()
+    diag_dict = body.diagnostico.model_dump() if body.diagnostico else None
+    if diag_dict:
+        diagnosticos[sessao_id] = diag_dict
+        logger.info(f"Sessão {sessao_id} iniciada com diagnóstico de: {diag_dict.get('nome', '?')}")
+    else:
+        logger.info(f"Sessão {sessao_id} iniciada sem diagnóstico.")
+
+    mensagem_inicial = iniciar_conversa(diag_dict)
 
     return IniciarSessaoResponse(
         sessao_id=sessao_id,
@@ -126,8 +166,10 @@ def enviar_mensagem(body: EnviarMensagemRequest):
         "content": body.mensagem
     })
 
+    diag = diagnosticos.get(body.sessao_id)
+
     try:
-        resposta = chat_com_luna(historico, get_cliente())
+        resposta = chat_com_luna(historico, get_cliente(), diagnostico=diag)
     except HTTPException:
         raise
     except Exception as e:
