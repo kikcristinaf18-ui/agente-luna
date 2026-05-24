@@ -51,13 +51,18 @@ def get_cliente():
 # ── Modelos de dados ──────────────────────────────────────────────────────────
 
 class Diagnostico(BaseModel):
+    # Dados pessoais (vêm do profile do usuário)
     nome: Optional[str] = None
     nome_empresa: Optional[str] = None
-    segmento: Optional[str] = None
-    tempo_mercado: Optional[str] = None
-    dores: Optional[list[str]] = None
-    nivel_tech: Optional[str] = None   # "iniciante" | "intermediario" | "avancado"
-    objetivos: Optional[list[str]] = None
+    # Dados do payload da tabela ai_diagnostics ou invite_respondents
+    resumo_executivo: Optional[str] = None
+    score_maturidade: Optional[float] = None
+    gargalos: Optional[list[str]] = None
+    quick_wins: Optional[list[str]] = None
+    projetos_estrategicos: Optional[list[str]] = None
+    projetos_avancados: Optional[list[str]] = None
+    recomendacoes: Optional[list[str]] = None
+    oportunidades: Optional[list[dict]] = None
 
 
 class IniciarSessaoRequest(BaseModel):

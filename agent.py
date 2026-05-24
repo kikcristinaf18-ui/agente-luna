@@ -93,44 +93,76 @@ Seu trabalho é mostrar que QUALQUER mulher pode ter um agente trabalhando por e
 """
 
 
+def _lista(items: list | None, fallback="não informado") -> str:
+    if not items:
+        return f"  {fallback}"
+    return "\n".join(f"  - {i}" for i in items)
+
+
+def _oportunidades_texto(ops: list | None) -> str:
+    if not ops:
+        return "  (nenhuma registrada)"
+    linhas = []
+    for o in ops[:5]:  # limita a 5 para não sobrecarregar o prompt
+        nome = o.get("nome", "")
+        area = o.get("area", "")
+        impacto = o.get("impacto")
+        dif = o.get("dificuldade")
+        linha = f"  - [{area}] {nome}"
+        if impacto is not None:
+            linha += f" | Impacto {impacto}/10"
+        if dif is not None:
+            linha += f" | Dificuldade {dif}/10"
+        linhas.append(linha)
+    return "\n".join(linhas)
+
+
 def construir_prompt_com_diagnostico(diagnostico: dict | None) -> str:
-    """Monta o system prompt incluindo o diagnóstico da empreendedora se disponível."""
+    """Monta o system prompt usando a estrutura real do payload do Supabase."""
     if not diagnostico:
         return SYSTEM_PROMPT_BASE
 
-    nivel_map = {
-        "iniciante": "INICIANTE (explique tudo de forma bem simples, sem termos técnicos)",
-        "intermediario": "INTERMEDIÁRIA (pode usar alguns termos técnicos com explicação breve)",
-        "avancado": "AVANÇADA (pode ser mais direta e técnica)",
-    }
-    nivel = nivel_map.get(diagnostico.get("nivel_tech", "iniciante"), nivel_map["iniciante"])
-
-    dores = diagnostico.get("dores", [])
-    dores_texto = "\n".join(f"  - {d}" for d in dores) if dores else "  (não informado)"
-
-    objetivos = diagnostico.get("objetivos", [])
-    objetivos_texto = "\n".join(f"  - {o}" for o in objetivos) if objetivos else "  (não informado)"
+    primeiro_nome = (diagnostico.get("nome") or "").split()[0] or "empreendedora"
+    score = diagnostico.get("score_maturidade")
+    score_texto = f"{score}/100" if score is not None else "não calculado"
 
     contexto = f"""
 === DIAGNÓSTICO DA EMPREENDEDORA ===
-Nome: {diagnostico.get("nome", "não informado")}
-Empresa: {diagnostico.get("nome_empresa", "não informado")}
-Segmento: {diagnostico.get("segmento", "não informado")}
-Tempo de mercado: {diagnostico.get("tempo_mercado", "não informado")}
-Nível de conhecimento em tecnologia: {nivel}
+Nome: {diagnostico.get("nome") or "não informado"}
+Empresa: {diagnostico.get("nome_empresa") or "não informado"}
+Score de Maturidade Digital: {score_texto}
 
-Principais dores e gargalos:
-{dores_texto}
+Resumo executivo do diagnóstico:
+  {diagnostico.get("resumo_executivo") or "não disponível"}
 
-Objetivos e metas:
-{objetivos_texto}
+Gargalos identificados (as maiores dores dela):
+{_lista(diagnostico.get("gargalos"))}
 
-INSTRUÇÕES ESPECIAIS:
-- Use o nome "{diagnostico.get("nome", "").split()[0]}" para chamar a empreendedora
-- JÁ PULE a Etapa 1 (você já sabe o negócio dela)
-- Na Etapa 2, confirme as dores listadas acima em vez de perguntar do zero
-- Adapte sua linguagem ao nível: {nivel}
-- Conecte cada sugestão de agente diretamente às dores listadas acima
+Quick wins (o que pode ser resolvido rapidinho):
+{_lista(diagnostico.get("quick_wins"))}
+
+Projetos estratégicos recomendados:
+{_lista(diagnostico.get("projetos_estrategicos"))}
+
+Oportunidades de automação (as mais relevantes):
+{_oportunidades_texto(diagnostico.get("oportunidades"))}
+
+Recomendações gerais:
+{_lista(diagnostico.get("recomendacoes"))}
+=====================================
+
+INSTRUÇÕES ESPECIAIS COM BASE NESSE DIAGNÓSTICO:
+- Chame a empreendedora pelo nome "{primeiro_nome}" sempre que possível
+- JÁ PULE a Etapa 1 — você já conhece o negócio dela pelo diagnóstico
+- Na Etapa 2, CONFIRME os gargalos listados acima em vez de perguntar do zero
+  Exemplo: "{primeiro_nome}, vi aqui que seus maiores desafios são [listar gargalos].
+  É isso mesmo? Tem mais alguma coisa que te incomoda?"
+- Na Etapa 4, sugira agentes baseados nos GARGALOS e OPORTUNIDADES do diagnóstico acima
+- Mencione o score de maturidade ({score_texto}) de forma encorajadora:
+  se < 40: "Você está começando sua jornada digital — e isso é ótimo! Temos muito espaço para crescer juntas! 🌱"
+  se 40-70: "Você já tem uma boa base! Vamos acelerar ainda mais o seu negócio! 🚀"
+  se > 70: "Uau, você já é bastante avançada! Vamos criar agentes poderosos para o próximo nível! 💪"
+- Fale de forma super simples, como se explicasse para uma criança de 5 anos
 =====================================
 """
     return contexto + "\n" + SYSTEM_PROMPT_BASE
@@ -170,17 +202,36 @@ def chat_com_luna(
 
 
 def iniciar_conversa(diagnostico: dict | None = None) -> str:
-    """Retorna a mensagem inicial da Luna, personalizada se houver diagnóstico."""
+    """Retorna a mensagem inicial da Luna, personalizada com o diagnóstico real."""
     if diagnostico and diagnostico.get("nome"):
         primeiro_nome = diagnostico["nome"].split()[0]
-        empresa = diagnostico.get("nome_empresa", "seu negócio")
+        empresa = diagnostico.get("nome_empresa") or "seu negócio"
+        score = diagnostico.get("score_maturidade")
+        gargalos = diagnostico.get("gargalos") or []
+
+        score_msg = ""
+        if score is not None:
+            if score < 40:
+                score_msg = f"Vi que você está começando sua jornada digital (score {score:.0f}/100) — e isso é ótimo! Temos muito espaço para crescer juntas! 🌱\n\n"
+            elif score <= 70:
+                score_msg = f"Vi que você já tem uma boa base digital (score {score:.0f}/100)! Vamos acelerar ainda mais! 🚀\n\n"
+            else:
+                score_msg = f"Vi que você já é bastante avançada (score {score:.0f}/100)! Vamos criar agentes poderosos! 💪\n\n"
+
+        gargalo_msg = ""
+        if gargalos:
+            primeiro = gargalos[0]
+            gargalo_msg = f"Já sei que um dos seus maiores desafios é: **\"{primeiro}\"**. Vamos resolver isso juntas! 💪\n\n"
+
         return (
             f"Oi, {primeiro_nome}! Eu sou a LUNA! 🌟\n\n"
-            f"Já vi aqui que você tem a **{empresa}** e estou animada para te ajudar "
-            f"a criar agentes inteligentes que vão trabalhar por você! 🚀\n\n"
+            f"Já fiz o diagnóstico da **{empresa}** e estou aqui para te ajudar a criar "
+            f"agentes inteligentes que vão trabalhar por você enquanto você descansa! 😄\n\n"
+            f"{score_msg}"
+            f"{gargalo_msg}"
             f"Não precisa saber nada de tecnologia — eu vou te guiar em cada "
-            f"passinho, com muito carinho e paciência! 💕\n\n"
-            f"Vamos começar? Me conta um pouquinho mais sobre o seu dia a dia no negócio! 😊"
+            f"passinho com muito carinho! 💕\n\n"
+            f"Vamos começar? Me conta: tem algo no seu dia a dia que te cansa mais do que deveria? 😊"
         )
     return (
         "Oi! Eu sou a LUNA! 🌟\n\n"
