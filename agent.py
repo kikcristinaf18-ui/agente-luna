@@ -1,8 +1,4 @@
-"""
-Agente: Guia de Criação de Agentes para Mulheres Empreendedoras
-Fala de forma simples, como se explicasse para uma criança de 5 anos.
-"""
-
+import re
 import anthropic
 from typing import Optional
 
@@ -90,6 +86,15 @@ REGRAS IMPORTANTES:
 
 Lembre-se: muitas dessas mulheres nunca tiveram acesso a tecnologia avançada.
 Seu trabalho é mostrar que QUALQUER mulher pode ter um agente trabalhando por ela!
+
+---
+MARCAÇÃO OBRIGATÓRIA DE ETAPA:
+No final de CADA resposta sua, em uma linha separada e sem nenhum texto adicional,
+escreva exatamente: [ETAPA:X] onde X é o número da etapa atual (1, 2, 3, 4 ou 5).
+Esta marcação é removida automaticamente antes de chegar à empreendedora.
+Exemplo correto:
+  Ficou claro? Me conta mais! 💕
+  [ETAPA:2]
 """
 
 
@@ -103,7 +108,7 @@ def _oportunidades_texto(ops: list | None) -> str:
     if not ops:
         return "  (nenhuma registrada)"
     linhas = []
-    for o in ops[:5]:  # limita a 5 para não sobrecarregar o prompt
+    for o in ops[:5]:
         nome = o.get("nome", "")
         area = o.get("area", "")
         impacto = o.get("impacto")
@@ -118,7 +123,6 @@ def _oportunidades_texto(ops: list | None) -> str:
 
 
 def construir_prompt_com_diagnostico(diagnostico: dict | None) -> str:
-    """Monta o system prompt usando a estrutura real do payload do Supabase."""
     if not diagnostico:
         return SYSTEM_PROMPT_BASE
 
@@ -175,8 +179,17 @@ INSTRUÇÕES ESPECIAIS COM BASE NESSE DIAGNÓSTICO:
     return contexto + "\n" + SYSTEM_PROMPT_BASE
 
 
-def criar_cliente():
-    """Cria o cliente da API da Anthropic."""
+def extrair_etapa_da_resposta(texto: str) -> tuple[str, int | None]:
+    """Remove o marcador [ETAPA:X] do texto e retorna (texto_limpo, etapa)."""
+    match = re.search(r'\[ETAPA:([1-5])\]', texto)
+    if match:
+        etapa = int(match.group(1))
+        texto_limpo = re.sub(r'\n?\[ETAPA:[1-5]\]\s*$', '', texto).strip()
+        return texto_limpo, etapa
+    return texto, None
+
+
+def criar_cliente() -> anthropic.Anthropic:
     return anthropic.Anthropic()
 
 
@@ -184,14 +197,13 @@ def chat_com_luna(
     mensagens: list[dict],
     cliente: Optional[anthropic.Anthropic] = None,
     diagnostico: dict | None = None,
-) -> str:
+) -> tuple[str, int | None]:
     """
-    Envia mensagens para a Luna e retorna a resposta.
+    Envia mensagens para a TIAGA e retorna (resposta, etapa_atual).
 
-    Args:
-        mensagens: Lista de mensagens no formato [{"role": "user"/"assistant", "content": "..."}]
-        cliente: Cliente Anthropic (opcional, cria um novo se não fornecido)
-        diagnostico: Dados do diagnóstico da empreendedora vindos do Supabase (opcional)
+    Usa prompt caching para reduzir custo: o system prompt (que é longo)
+    é cacheado pela Anthropic e reutilizado nas mensagens seguintes da mesma sessão.
+    Economia média de 80-90% no custo do system prompt.
     """
     if cliente is None:
         cliente = criar_cliente()
@@ -201,15 +213,21 @@ def chat_com_luna(
     resposta = cliente.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2048,
-        system=system_prompt,
-        messages=mensagens
+        system=[
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=mensagens,
     )
 
-    return resposta.content[0].text
+    texto = resposta.content[0].text
+    return extrair_etapa_da_resposta(texto)
 
 
 def iniciar_conversa(diagnostico: dict | None = None) -> str:
-    """Retorna a mensagem inicial da Luna, personalizada com o diagnóstico real."""
     if diagnostico and diagnostico.get("nome"):
         primeiro_nome = diagnostico["nome"].split()[0]
         empresa = diagnostico.get("nome_empresa") or "seu negócio"
