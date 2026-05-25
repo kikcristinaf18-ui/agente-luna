@@ -171,8 +171,8 @@ async def chat(
         diagnostico=diagnostico,
     )
 
-    salvar_mensagem_db(body.sessao_id, "user", body.mensagem)
-    salvar_mensagem_db(body.sessao_id, "assistant", resposta_texto)
+    salvar_mensagem_db(body.sessao_id, "user", body.mensagem, user_id=user_id)
+    salvar_mensagem_db(body.sessao_id, "assistant", resposta_texto, user_id=user_id)
 
     etapa_atual = sessao["etapa_atual"]
     if etapa_detectada and etapa_detectada >= etapa_atual:
